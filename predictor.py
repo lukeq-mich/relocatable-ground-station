@@ -20,6 +20,9 @@ from zoneinfo import ZoneInfo
 import numpy as np
 from skyfield.api import EarthSatellite, load, wgs84
 
+import socket
+socket.setdefaulttimeout(20)
+
 # CONFIG
 
 # Ground stations. Add a place = add a line. tz is an IANA name (handles DST).
