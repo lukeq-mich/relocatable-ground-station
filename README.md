@@ -2,7 +2,7 @@
 
 *A portable ground station for tracking weather satellites from anywhere — currently deployed in Canberra and Ann Arbor.*
 
-https://luke-ground-station.streamlit.app/
+[![Streamlit App](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://luke-ground-station.streamlit.app/)
 
 ![Dashboard screenshot](docs/dashboard.png)
 <!-- Replace docs/dashboard.png with a real screenshot of the running dashboard.
