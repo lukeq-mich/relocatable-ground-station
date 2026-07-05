@@ -18,13 +18,13 @@ import predictor as P
 st.set_page_config(page_title="Ground Station", page_icon="🛰️", layout="wide")
 
 
-# --- Load satellites once per hour (TLEs refresh ~daily anyway) ---------------
+# --- Load satellites once per hour (TLEs refresh ~daily anyway) 
 @st.cache_resource(ttl=3600)
 def get_satellites():
     return P.load_satellites()
 
 
-# --- Sidebar controls ---------------------------------------------------------
+# --- Sidebar controls 
 st.sidebar.title("🛰️ Ground Station")
 station = st.sidebar.selectbox("Location", list(P.STATIONS.keys()))
 
@@ -57,7 +57,7 @@ if sats:
                "  (refresh if any are more than a few days old)")
 
 
-# --- Live positions map -------------------------------------------------------
+# --- Live positions map
 st.subheader("Where they are now")
 
 fig_map = go.Figure()
@@ -89,7 +89,7 @@ fig_map.update_layout(
 st.plotly_chart(fig_map, use_container_width=True)
 
 
-# --- Upcoming passes table ----------------------------------------------------
+# --- Upcoming passes table
 st.subheader("Upcoming passes")
 
 passes = P.upcoming_passes(sats, station, days=days, min_elevation=min_elev)
@@ -110,7 +110,7 @@ else:
     st.dataframe(df, use_container_width=True, hide_index=True)
 
 
-# --- Sky view of a selected pass ---------------------------------------------
+# --- Sky view of a selected pass
 st.subheader("Sky view — where to point")
 
 if passes:
