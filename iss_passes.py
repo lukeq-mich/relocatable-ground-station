@@ -28,11 +28,10 @@ from zoneinfo import ZoneInfo
 
 from skyfield.api import load, wgs84
 
-# --------------------------------------------------------------------------
 # CONFIG -- your ground stations. Add as many as you like.
 #   latlon(latitude_deg, longitude_deg, elevation_m)
 #   tz: an IANA timezone name (handles daylight saving automatically)
-# --------------------------------------------------------------------------
+
 STATIONS = {
     "Canberra": {
         "site": wgs84.latlon(-35.2809, 149.1300, elevation_m=577),
