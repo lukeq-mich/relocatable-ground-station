@@ -20,9 +20,7 @@ from zoneinfo import ZoneInfo
 import numpy as np
 from skyfield.api import EarthSatellite, load, wgs84
 
-# --------------------------------------------------------------------------
 # CONFIG
-# --------------------------------------------------------------------------
 
 # Ground stations. Add a place = add a line. tz is an IANA name (handles DST).
 STATIONS: dict[str, dict] = {
@@ -46,9 +44,7 @@ RISE, CULMINATE, SET = 0, 1, 2
 _TS = load.timescale()
 
 
-# --------------------------------------------------------------------------
 # Data types
-# --------------------------------------------------------------------------
 
 @dataclass
 class Pass:
@@ -70,9 +66,7 @@ class Pass:
         return compass(self.peak_azimuth)
 
 
-# --------------------------------------------------------------------------
 # Helpers
-# --------------------------------------------------------------------------
 
 def compass(azimuth_deg: float) -> str:
     points = ["N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE",
@@ -93,9 +87,7 @@ def timescale():
     return _TS
 
 
-# --------------------------------------------------------------------------
 # Loading satellites
-# --------------------------------------------------------------------------
 
 def fetch_satellite(norad: int) -> EarthSatellite | None:
     """Download (and cache ~daily) one satellite's TLE. Returns None on failure."""
@@ -127,9 +119,7 @@ def tle_age_days(sat: EarthSatellite) -> float:
     return _TS.now() - sat.epoch
 
 
-# --------------------------------------------------------------------------
 # Predictions
-# --------------------------------------------------------------------------
 
 def _sample_track(sat, site, t_rise, t_set, n=40):
     """Sample az/el across a pass for the polar sky plot."""
