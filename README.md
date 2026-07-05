@@ -1,4 +1,4 @@
-# Relocatable Satellite Ground Station  [![Streamlit App](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://luke-ground-station.streamlit.app/)
+# Relocatable Satellite Ground Station  [![Streamlit App](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://luke-ground-station.streamlit.app/)  [Github](https://github.com/lukeq-mich/relocatable-ground-station)
 
 *A portable ground station for tracking weather satellites from anywhere — currently deployed in Canberra and Ann Arbor.*
 
