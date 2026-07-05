@@ -2,6 +2,8 @@
 
 *A portable ground station for tracking weather satellites from anywhere — currently deployed in Canberra and Ann Arbor.*
 
+https://luke-ground-station.streamlit.app/
+
 ![Dashboard screenshot](docs/dashboard.png)
 <!-- Replace docs/dashboard.png with a real screenshot of the running dashboard.
      A recruiter skims — this image does more work than any paragraph here. -->
