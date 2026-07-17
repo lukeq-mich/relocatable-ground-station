@@ -100,44 +100,84 @@ def timescale():
 
 # Loading satellites
 
-def fetch_satellite(norad: int, max_age_h: float | None = None) -> EarthSatellite | None:
-    """Load one satellite's TLE, caching to tle_<norad>.tle, with a fallback.
-
-    max_age_h=None (default): always try a fresh download, but if the network
-    fails, fall back to the cached file so a celestrak hiccup doesn't take the
-    whole app down. This is why the repo ships the ISS/Meteor .tle files — they
-    are the offline safety net.
-    max_age_h set: skip the download entirely while the cache is younger than
-    that many hours (used by the conjunction screener, which must not re-fetch
-    a whole object list every run).
-
-    Returns None only when the object can't be loaded at all — no network *and*
-    no cached file. A stale-but-usable TLE is preferred over nothing; its age
-    is surfaced in the UI (see tle_age_days), never assumed fresh.
-    """
-    path = f"tle_{norad}.tle"
-    try:
-        age_s = time.time() - os.path.getmtime(path)
-    except OSError:
-        age_s = None
-    fresh = max_age_h is not None and age_s is not None and age_s < max_age_h * 3600.0
-
-    sats = None
-    try:
-        sats = load.tle_file(GP_URL.format(norad=norad),
-                             filename=path, reload=not fresh)
-    except Exception:
-        if age_s is not None:                      # download failed; use the cache
-            try:
-                sats = load.tle_file(path)
-            except Exception:
-                return None
+def _pick(sats, norad: int) -> EarthSatellite | None:
+    """The satellite matching `norad` in a parsed TLE list (or the first one)."""
     if not sats:
         return None
     for s in sats:
         if s.model.satnum == norad:
             return s
     return sats[0]
+
+
+def _read_cache(path: str, norad: int) -> EarthSatellite | None:
+    """Parse an existing local TLE file. No network. None if absent/unparseable."""
+    if not os.path.exists(path):
+        return None
+    try:
+        return _pick(load.tle_file(path), norad)
+    except Exception:
+        return None
+
+
+def _download_fresh(norad: int, path: str) -> EarthSatellite | None:
+    """Download a fresh TLE, adopting it as the cache only if it's valid.
+
+    CelesTrak throttles by returning an HTTP 200 whose body is an error/limit
+    message rather than a TLE (common from shared cloud IPs). We therefore
+    download to a *temporary* file and only os.replace it over the real cache
+    once we've confirmed it parses to this object — so a throttled or junk
+    response can never clobber the committed tle_<norad>.tle fallback, and an
+    HTTP-200-with-no-TLE is treated as failure, not success.
+    """
+    tmp = f"{path}.download"
+    try:
+        sat = _pick(load.tle_file(GP_URL.format(norad=norad),
+                                  filename=tmp, reload=True), norad)
+    except Exception:
+        sat = None
+    if sat is None:
+        try:
+            os.remove(tmp)
+        except OSError:
+            pass
+        return None
+    try:
+        os.replace(tmp, path)          # atomically adopt as the cache
+    except OSError:
+        pass
+    return sat
+
+
+def fetch_satellite(norad: int, max_age_h: float | None = None) -> EarthSatellite | None:
+    """Load one satellite's TLE, caching to tle_<norad>.tle, with a fallback.
+
+    max_age_h=None (default): try a fresh download, but fall back to the cached
+    file on *any* failure — network error, or a throttled response that carries
+    no valid TLE — so a CelesTrak hiccup can't take the whole app down. This is
+    why the repo ships the ISS/Meteor .tle files: they are the offline net.
+    max_age_h set: skip the download entirely while the cache is younger than
+    that many hours (used by the conjunction screener, which must not re-fetch
+    a whole object list every run).
+
+    Returns None only when the object can't be loaded at all — no usable
+    download *and* no cached file. A stale-but-valid TLE is preferred over
+    nothing; its age is surfaced in the UI (see tle_age_days), never assumed
+    fresh. The cache is never overwritten with a response that isn't a TLE.
+    """
+    path = f"tle_{norad}.tle"
+    cached = _read_cache(path, norad)
+
+    if cached is not None and max_age_h is not None:
+        try:
+            age_s = time.time() - os.path.getmtime(path)
+        except OSError:
+            age_s = None
+        if age_s is not None and age_s < max_age_h * 3600.0:
+            return cached              # cache fresh enough; don't touch the network
+
+    fresh = _download_fresh(norad, path)
+    return fresh if fresh is not None else cached
 
 
 def load_satellites(configs=SATELLITES) -> tuple[dict[str, EarthSatellite], list[str]]:
