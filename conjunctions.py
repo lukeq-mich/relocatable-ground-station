@@ -26,14 +26,12 @@ WHAT THIS MODULE IS NOT — read before trusting a number:
 
 from __future__ import annotations
 
-import os
-import time
 from dataclasses import dataclass
 from datetime import datetime
 
 import numpy as np
 from scipy.optimize import minimize_scalar
-from skyfield.api import EarthSatellite, load
+from skyfield.api import EarthSatellite
 
 import predictor as P
 
@@ -79,11 +77,6 @@ THRESHOLD_KM = 5.0
 # which approaches are found — see the gate in screen() for why.
 STEP_S = 60.0
 
-# Re-download a cached TLE only when the file on disk is older than this.
-# (predictor.fetch_satellite passes reload=True, i.e. re-fetches every cold
-# start; here the on-disk cache and its mtime are honoured properly.)
-TLE_MAX_AGE_H = 12.0
-
 MU_EARTH = 398600.4418  # km^3/s^2
 
 _TS = P.timescale()
@@ -106,40 +99,11 @@ class Conjunction:
 
 
 # Loading the screening set
-
-def fetch_cached(norad: int, max_age_h: float = TLE_MAX_AGE_H) -> EarthSatellite | None:
-    """Fetch one object's TLE, honouring the on-disk cache.
-
-    Re-downloads only when the cached file (same tle_<norad>.tle files
-    predictor.py uses) is older than max_age_h. If the download fails but a
-    stale cache exists, the stale TLE is returned rather than nothing — its
-    age is surfaced in the UI, so the user sees exactly how old it is.
-    Returns None only when the object can't be loaded at all.
-    """
-    path = f"tle_{norad}.tle"
-    try:
-        age_s = time.time() - os.path.getmtime(path)
-    except OSError:
-        age_s = None
-    fresh = age_s is not None and age_s < max_age_h * 3600.0
-
-    sats = None
-    try:
-        sats = load.tle_file(P.GP_URL.format(norad=norad),
-                             filename=path, reload=not fresh)
-    except Exception:
-        if age_s is not None:                      # stale cache beats nothing
-            try:
-                sats = load.tle_file(path)
-            except Exception:
-                return None
-    if not sats:
-        return None
-    for s in sats:
-        if s.model.satnum == norad:
-            return s
-    return sats[0]
-
+#
+# TLE ingestion + caching lives in predictor.fetch_satellite (shared with pass
+# prediction). Screening passes max_age_h so a whole object list isn't
+# re-downloaded on every run — the cache is honoured, and a stale cache is
+# used if the network is unavailable rather than dropping the object.
 
 def load_screening_set(extra_norads: tuple[int, ...] = ()) -> tuple[dict[str, EarthSatellite], list[str]]:
     """Tracked satellites + debris list + any user-added NORAD IDs.
@@ -158,7 +122,7 @@ def load_screening_set(extra_norads: tuple[int, ...] = ()) -> tuple[dict[str, Ea
         if cfg["norad"] in seen:
             continue
         seen.add(cfg["norad"])
-        sat = fetch_cached(cfg["norad"])
+        sat = P.fetch_satellite(cfg["norad"], max_age_h=P.TLE_MAX_AGE_H)
         if sat is None:
             failed.append(cfg["label"])
         else:

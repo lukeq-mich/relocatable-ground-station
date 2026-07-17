@@ -13,6 +13,8 @@ Concepts:
 
 from __future__ import annotations
 
+import os
+import time
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
@@ -40,6 +42,12 @@ SATELLITES: list[dict] = [
 ]
 
 GP_URL = "https://celestrak.org/NORAD/elements/gp.php?CATNR={norad}&FORMAT=tle"
+
+# CelesTrak rate-limits repeated automated requests (cloud/shared IPs get 403/429
+# especially hard), so blindly re-downloading every run is what makes the fetch
+# fail in deployment. When a cache window is requested, re-download only if the
+# cached tle_<norad>.tle is older than this many hours.
+TLE_MAX_AGE_H = 12.0
 
 # Skyfield event codes from find_events()
 RISE, CULMINATE, SET = 0, 1, 2
@@ -92,17 +100,44 @@ def timescale():
 
 # Loading satellites
 
-def fetch_satellite(norad: int) -> EarthSatellite | None:
-    """Download (and cache ~daily) one satellite's TLE. Returns None on failure."""
+def fetch_satellite(norad: int, max_age_h: float | None = None) -> EarthSatellite | None:
+    """Load one satellite's TLE, caching to tle_<norad>.tle, with a fallback.
+
+    max_age_h=None (default): always try a fresh download, but if the network
+    fails, fall back to the cached file so a celestrak hiccup doesn't take the
+    whole app down. This is why the repo ships the ISS/Meteor .tle files — they
+    are the offline safety net.
+    max_age_h set: skip the download entirely while the cache is younger than
+    that many hours (used by the conjunction screener, which must not re-fetch
+    a whole object list every run).
+
+    Returns None only when the object can't be loaded at all — no network *and*
+    no cached file. A stale-but-usable TLE is preferred over nothing; its age
+    is surfaced in the UI (see tle_age_days), never assumed fresh.
+    """
+    path = f"tle_{norad}.tle"
+    try:
+        age_s = time.time() - os.path.getmtime(path)
+    except OSError:
+        age_s = None
+    fresh = max_age_h is not None and age_s is not None and age_s < max_age_h * 3600.0
+
+    sats = None
     try:
         sats = load.tle_file(GP_URL.format(norad=norad),
-                             filename=f"tle_{norad}.tle", reload=True)
-        for s in sats:
-            if s.model.satnum == norad:
-                return s
-        return sats[0] if sats else None
+                             filename=path, reload=not fresh)
     except Exception:
+        if age_s is not None:                      # download failed; use the cache
+            try:
+                sats = load.tle_file(path)
+            except Exception:
+                return None
+    if not sats:
         return None
+    for s in sats:
+        if s.model.satnum == norad:
+            return s
+    return sats[0]
 
 
 def load_satellites(configs=SATELLITES) -> tuple[dict[str, EarthSatellite], list[str]]:
